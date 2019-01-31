@@ -21,6 +21,7 @@ var pjson = require('./package.json');
 var setRegion = process.env['AWS_REGION'];
 var deagg = require('aws-kpl-deagg');
 var async = require('async');
+var moment = require('moment');
 
 var aws = require('aws-sdk');
 var firehose;
@@ -153,7 +154,7 @@ exports.init = init;
  * returned as a base64 encoded Buffer so as to implement the same interface
  * used for transforming kinesis records
  */
-function createDynamoDataItem(record) {
+function createDynamoDataItemOri(record) {
     var output = {};
     output.Keys = record.dynamodb.Keys;
 
@@ -172,6 +173,18 @@ function createDynamoDataItem(record) {
     output.userIdentity = record.userIdentity;
 
     return output;
+}
+
+function createDynamoDataItem(record) {
+    if (record.dynamodb.NewImage) {
+        var unmarshalled = aws.DynamoDB.Converter.unmarshall(record.dynamodb.NewImage);
+        if (unmarshalled.timestamp) {
+            unmarshalled.timestamp = moment(unmarshalled.timestamp).utcOffset(8).format("YYYY-MM-DD hh:mm:ss.SSS");
+        }
+        console.log("Before buffer: " + JSON.stringify(unmarshalled));
+        return unmarshalled;
+    }
+    return {};
 }
 
 exports.createDynamoDataItem = createDynamoDataItem;
